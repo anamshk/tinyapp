@@ -62,11 +62,19 @@ app.get("/hello", (req, res) => {
   res.send("<html><body>Hello <b>World</b></body></html>\n");
 });
 
-//POST to delete page and redirect to urls page
+//POST to delete and redirect to urls page
 app.post("/urls/:shortURL/delete", (req, res) => {
   console.log(req.params.shortURL);
   delete urlDatabase[req.params.shortURL];
   res.redirect("/urls");
+});
+
+//POST to redirect to the appropriate urls page
+app.post("/urls/:id", (req,res) =>{
+  const shortURL = req.params.shortURL;
+  const updatedLongURL = req.body.longURL;
+  urlDatabase[shortURL] = updatedLongURL;
+  res.redirect("/urls/");
 });
 
 app.listen(PORT, () => {
