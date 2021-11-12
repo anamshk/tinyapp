@@ -1,6 +1,6 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
-//const userHelperGenerator = require("./helpers/userHelpers");
+//const { finduserbyEmail } = require("/helpers/userHelpers");
 
 const app = express();
 const PORT = 8080; // default port 8080
@@ -37,6 +37,9 @@ const urlDatabase = {
 
 //Generate a random string when creating a new short URL
 app.post("/urls", (req, res) => {
+  if (!req.cookies.userId) {
+    res.redirect("/403error");
+  }
   const id = generateRandomString(); // Log the POST request body to the console
   urlDatabase[id] = `http://${req.body.longURL}`;
   res.redirect(`/urls/${id}`);
@@ -57,6 +60,9 @@ app.get("/urls", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
+  if (!req.cookies.userId) {
+    res.redirect("/login");
+  }
   const templateVars = {
     user: users[req.cookies.userId]
   };
@@ -125,25 +131,6 @@ app.post("/urls/:id", (req,res) =>{
   res.redirect("/urls/");
 });
 
-//POST to login, redirect to /urls page and display username successfully logged in
-app.post("/login", (req,res) => {
-  const { email } = req.body;
-  let userID = 0;
-  for (let key in users) {
-    if (users[key].email === email) {
-      userID = users[key].id;
-    }
-  }
-  res.cookie("userId", userID);
-  res.redirect("/urls");
-});
-
-//POST when user logs out
-app.post("/logout", (req, res) => {
-  res.clearCookie("userId");
-  res.redirect("/urls");
-});
-//check to see if email exists
 const finduserbyEmail = (database, email) => {
   for (let userid in database) {
     if (database[userid].email === email) {
@@ -152,6 +139,39 @@ const finduserbyEmail = (database, email) => {
   }
   return false;
 };
+
+//POST to login, redirect to /urls page and display username successfully logged in
+app.post("/login", (req,res) => {
+  const email = req.body.email;
+  const password = req.body.password;
+  const user = finduserbyEmail(users, email);
+
+  if (!user) {
+    res.redirect("/403error");
+  }
+
+  if (user.password !== password) {
+    res.redirect("/403error");
+  }
+
+  
+  // let userID = 0;
+  // for (let key in users) {
+  //   if (users[key].email === email) {
+  //     userID = users[key].id;
+  //   }
+  // }
+
+  res.cookie("userId", user.id);
+  res.redirect("/urls");
+});
+
+//POST when user logs out
+app.post("/logout", (req, res) => {
+  res.clearCookie("userId");
+  res.redirect("/urls");
+});
+
 
 
 //Post the user email and password to the user object along with redirect to /urls
