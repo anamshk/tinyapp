@@ -1,5 +1,6 @@
 const express = require("express");
 const cookieParser = require("cookie-parser");
+const cookieSession = require('cookie-session');
 //const { finduserbyEmail } = require("/helpers/userHelpers");
 
 const app = express();
@@ -31,8 +32,15 @@ const users = {
 };
 
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  b2xVn2: {
+    longURL: "http://www.lighthouselabs.ca",
+    userID: "aJ48lW",
+
+  },
+  i3BoGr: {
+    longURL: "http://www.google.com",
+    userID: "aJ48lW"
+  }
 };
 
 //Generate a random string when creating a new short URL
@@ -51,10 +59,33 @@ app.get("/u/:shortURL", (req, res) => {
   res.redirect(longURL);
 });
 
+const urlsForUser = function(id, database) {
+  const userURLs = {};
+
+  if (!id) { // if user isn't logged in, null.
+    return null;
+  }
+
+  for (const item in database) { // loops through URL database to find all the urls belonging to logged in user.
+    if (database[item].userID === id) {
+      userURLs[item] = database[item];
+    }
+  }
+
+  return userURLs;
+};
+
+const getEmailFromId = (userid, database) => {
+  return (database[userid]) ? database[userid].email : null;
+};
+
+
 app.get("/urls", (req, res) => {
+  const userURLs = urlsForUser(user_id, urlDatabase);
   const templateVars = {
-    urls: urlDatabase,
-    user: users[req.cookies.userId]
+    userID: user_id,
+    email: getEmailFromId(user_id, users),
+    urls: userURLs
   };
   res.render("urls_index", templateVars);
 });
@@ -64,19 +95,24 @@ app.get("/urls/new", (req, res) => {
     res.redirect("/login");
   }
   const templateVars = {
-    user: users[req.cookies.userId]
+    userId: req.session.id,
+    email: getEmailFromId(req.session.id, users),
   };
   res.render("urls_new", templateVars);
 });
 
 app.get("/urls/:shortURL", (req, res) => {
+  const url = urlDatabase[req.params.shortURL];
+  const userid = req.session.id;
+
   const templateVars = {
     shortURL: req.params.shortURL,
     longURL: urlDatabase[req.params.shortURL],
     user: users[req.cookies.userId]
+    email: getEmailFromId(userid, users), 
   };
   if (!templateVars.longURL) {
-    res.redirect('/urls');
+    res.redirect('/error');
   }
   res.render("urls_shows", templateVars);
 });
@@ -117,9 +153,27 @@ app.get("/hello", (req, res) => {
   res.send("<html><body>Hello <b>World</b></body></html>\n");
 });
 
+app.post("/urls/:shortURL", (req, res) => {
+  const updateShortURL = req.params.shortURL;
+  const longURL = req.body.longURL;
+  const userid = req.session.id;
+  if (urlDatabase[updateShortURL].userID !== userid) { // prevents changing of URLs by users that don't own them.
+    res.redirect('/not_authorized');
+    return;
+  }
+  urlDatabase[shorturlToUpdate].longURL = longURL;
+  res.redirect(`/urls/`);
+});
+
+
 //POST to delete and redirect to urls page
 app.post("/urls/:shortURL/delete", (req, res) => {
-  delete urlDatabase[req.params.shortURL];
+const urlToDelete = urlDatabase[req.params.shortURL];
+  const userid = req.session.id;
+  if (urlDatabase[urlToDelete].userID !== userid) { // prevents deletion of URLs by users that don't own them.
+    res.redirect('/not_authorized');
+  }
+  delete urlToDelete
   res.redirect("/urls");
 });
 
